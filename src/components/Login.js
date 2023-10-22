@@ -1,124 +1,137 @@
-import { useRef, useState } from "react";
+import { useState, useRef } from "react";
 import Header from "./Header";
-import {  createUserWithEmailAndPassword } from "firebase/auth";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../utils/firebase";
 import { checkValidData } from "../utils/Validate";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../utils/firebase";
+import { useDispatch } from "react-redux";
+import { addUser } from "../utils/userSlice";
+import { BG_URL, USER_AVATAR } from "../utils/constants";
+
 
 
 const Login = () => {
-  const [isSignInFrom, setIsSignInForm] = useState(true);
-  const [errorMessage, seterrorMessage] = useState(null);
+  const dispatch = useDispatch();
+ 
+  const [isSignInForm, setIsSignInForm] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+
+  const name = useRef(null);
   const email = useRef(null);
   const password = useRef(null);
-  
 
   const handleButtonClick = () => {
-    // Validate the form data
-    //checkValidateData(email,password)
-    // console.log(email.current.value);
-    // console.log(password.current.value);
-    const message = checkValidData(
-      email.current.value,
-      password.current.value
-    );
-    //console.log(message)
-    seterrorMessage(message);
-    if(message) return 
+    const message = checkValidData(email.current.value, password.current.value);
+    setErrorMessage(message);
+    if (message) return;
 
-//sign in or sign up
-if(!isSignInFrom){
-   //sign up logic
-   createUserWithEmailAndPassword(auth,
-    email.current.value,
-    password.current.value
-    )
-  .then((userCredential) => {
-    // Signed up 
-    const user = userCredential.user;
-    console.log(user);
-    // ...
-  })
-  .catch((error) => {
-    const errorCode = error.code;
-    const errorMessage = error.message;
-    seterrorMessage(errorCode+"-"+errorMessage)
-    // ..
-  });
-}
-else{
-    //sign in logic
-    signInWithEmailAndPassword(auth,
+    if (!isSignInForm) {
+      // Sign Up Logic
+      createUserWithEmailAndPassword(
+        auth,
         email.current.value,
         password.current.value
-         )
-  .then((userCredential) => {
-    // Signed in 
-    const user = userCredential.user;
-    console.log(user)
-    // ...
-  })
-  .catch((error) => {
-    const errorCode = error.code;
-    const errorMessage = error.message;
-    seterrorMessage(errorCode+"-"+errorMessage)
-  });
-
-}
-
-    
+      )
+        .then((userCredential) => {
+          const user = userCredential.user;
+          updateProfile(user, {
+            displayName: name.current.value,
+            photoURL:USER_AVATAR ,
+          })
+            .then(() => {
+              const { uid, email, displayName, photoURL } = auth.currentUser;
+              dispatch(
+                addUser({
+                  uid: uid,
+                  email: email,
+                  displayName: displayName,
+                  photoURL: photoURL,
+                })
+              );
+            })
+           
+            .catch((error) => {
+              setErrorMessage(error.message);
+            });
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          setErrorMessage(errorCode + "-" + errorMessage);
+        });
+    } else {
+      // Sign In Logic
+      signInWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((userCredential) => {
+          // Signed in
+          const user = userCredential.user;
+          console.log(user);
+          
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          setErrorMessage(errorCode + "-" + errorMessage);
+        });
+    }
   };
+
   const toggleSignInForm = () => {
-    setIsSignInForm(!isSignInFrom);
+    setIsSignInForm(!isSignInForm);
   };
-
   return (
     <div>
       <Header />
       <div className="absolute">
-        <img
-          src="https://assets.nflxext.com/ffe/siteui/vlv3/ab180a27-b661-44d7-a6d9-940cb32f2f4a/7fb62e44-31fd-4e1f-b6ad-0b5c8c2a20ef/IN-en-20231009-popsignuptwoweeks-perspective_alpha_website_large.jpg"
-          alt=""
-        />
+        <img className="h-screen object-cover" src={BG_URL} alt="logo" />
       </div>
       <form
         onSubmit={(e) => e.preventDefault()}
-        className=" w-3/12 absolute p-12 bg-black my-36 mx-auto right-0 left-0 text-white rounded-lg bg-opacity-80"
+        className="w-full md:w-3/12 absolute p-12 bg-black my-36 mx-auto right-0 left-0 text-white rounded-lg bg-opacity-80"
       >
         <h1 className="font-bold text-3xl py-4">
-          {isSignInFrom ? "Sign In" : "Sign Up"}
+          {isSignInForm ? "Sign In" : "Sign Up"}
         </h1>
-        {!isSignInFrom && (
-          <input 
-            className="my-4 p-4  w-full bg-gray-800 rounded-lg"
+
+        {!isSignInForm && (
+          <input
+            ref={name}
             type="text"
-            placeholder=" Full Name"
+            placeholder="Full Name"
+            className="p-4 my-4 w-full bg-gray-700"
           />
         )}
         <input
-          className=" my-4 p-4 w-full bg-gray-800 rounded-lg"
           ref={email}
           type="text"
-          placeholder=" Email Address"
+          placeholder="Email Address"
+          className="p-4 my-4 w-full bg-gray-700"
         />
-
         <input
-          className="my-4 p-4  w-full bg-gray-800 rounded-lg"
           ref={password}
           type="password"
           placeholder="Password"
+          className="p-4 my-4 w-full bg-gray-700"
         />
-        <p className="text-red-500 text-lg font-bold">{errorMessage}</p>
+        <p className="text-red-500 font-bold text-lg py-2">{errorMessage}</p>
         <button
-          className="p-4 my-6 bg-red-700  w-full rounded-lg"
+          className="p-4 my-6 bg-red-700 w-full rounded-lg"
           onClick={handleButtonClick}
         >
-          {isSignInFrom ? "Sign In" : "Sign Up"}
+          {isSignInForm ? "Sign In" : "Sign Up"}
         </button>
         <p className="py-4 cursor-pointer" onClick={toggleSignInForm}>
-          {isSignInFrom
-            ? " New to Netflix ? Sign Up Now "
-            : "Already Registerd? Sign In Now"}
+          {isSignInForm
+            ? "New to Netflix? Sign Up Now"
+            : "Already registered? Sign In Now."}
         </p>
       </form>
     </div>
